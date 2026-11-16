@@ -88,8 +88,11 @@ BarWidget {
         open: root.opened
         focusTarget: popupContent
 
-        contentWidth: 380
-        contentHeight: Math.max(160, popupColumn.implicitHeight)
+        contentWidth: popup.fittedContentWidth(520)
+        contentHeight: popup.fittedContentHeight(
+            Math.max(160, popupColumn.implicitHeight)
+        )
+
         padding: 16
 
         Item {
@@ -105,7 +108,9 @@ BarWidget {
 
             Column {
                 id: popupColumn
-                anchors.fill: parent
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
                 spacing: 12
 
                 Text {
