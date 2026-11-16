@@ -9,6 +9,8 @@ BarWidget {
     moduleName: "toxusa.yandex-disk"
 
     property string diskState: "loading"
+    property string controlError: ""
+    property string controlAction: ""
     property bool opened: false
     property bool popoutSwitchClosing: false
 
@@ -44,7 +46,8 @@ BarWidget {
         } else {
             return
         }
-
+        root.controlError = ""
+        root.controlAction = action
         controlProcess.command = ["yandex-disk", action]
         controlProcess.running = true
       }
@@ -74,7 +77,7 @@ BarWidget {
         focusTarget: popupContent
 
         contentWidth: 280
-        contentHeight: 160
+        contentHeight: Math.max(160, popupColumn.implicitHeight)
         padding: 16
 
         Item {
@@ -89,6 +92,7 @@ BarWidget {
             }
 
             Column {
+                id: popupColumn
                 anchors.fill: parent
                 spacing: 12
 
@@ -122,12 +126,30 @@ BarWidget {
                         onClicked: root.controlDaemon("stop")
                     }
                 }
+                Text {
+                    width: parent.width
+                    visible: root.controlError.length > 0
+                    text: root.controlError
+                    textFormat: Text.PlainText
+                    wrapMode: Text.Wrap
+                    color: Commons.Color.foreground
+                    font.pixelSize: 13
+                }
             }
         }
     }
     Process {
         id: controlProcess
-
+        onExited: function(exitCode, exitStatus) {
+            if (exitStatus !== 0) {
+                root.controlError =
+                    "Command '" + root.controlAction + "' terminated abnormally."
+            } else if (exitCode !== 0) {
+                root.controlError =
+                    "Command '" + root.controlAction
+                    + "' failed (exit code " + exitCode + ")."
+            }
+        }
         stdout: StdioCollector {
             onStreamFinished: {
                 if (this.text.trim().length > 0)
