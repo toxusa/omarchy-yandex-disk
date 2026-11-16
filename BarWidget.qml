@@ -342,6 +342,8 @@ BarWidget {
                     }
 
                     Controls.ProgressBar {
+                        id: syncProgressBar
+
                         width: parent.width
                         visible: root.progressPercent >= 0
                         from: 0
@@ -349,6 +351,25 @@ BarWidget {
                         value: root.progressPercent >= 0
                             ? root.progressPercent
                             : 0
+                        padding: 0
+
+                        background: Rectangle {
+                            implicitHeight: 6
+                            radius: 3
+                            color: Commons.Color.foreground
+                            opacity: 0.2
+                        }
+
+                        contentItem: Item {
+                            implicitHeight: 6
+
+                            Rectangle {
+                                width: syncProgressBar.position * parent.width
+                                height: parent.height
+                                radius: 3
+                                color: Commons.Color.foreground
+                            }
+                        }
                     }
                 }
 
