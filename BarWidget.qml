@@ -194,26 +194,19 @@ BarWidget {
                         width: parent.width
                         spacing: 8
 
-                        Text {
-                            width: Math.max(0, parent.width - openDirectoryButton.width - 8)
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: root.syncDirectory.endsWith("/")
-                                ? root.syncDirectory
-                                : root.syncDirectory + "/"
-                            textFormat: Text.PlainText
-                            wrapMode: Text.WrapAnywhere
-                            color: "#888888"
-                            font.pixelSize: 12
-                        }
-
                         Controls.ToolButton {
                             id: openDirectoryButton
                             anchors.verticalCenter: parent.verticalCenter
                             width: 32
                             height: 28
-                            text: "📂"
-                            font.pixelSize: 18
                             enabled: root.syncDirectory.length > 0
+
+                            contentItem: OpticalGlyph {
+                                text: "\uf07c"
+                                fontFamily: Commons.Style.font.family
+                                fontSize: 18
+                                color: Commons.Color.foreground
+                            }
 
                             Accessible.name: "Open sync directory"
                             Controls.ToolTip.visible: hovered
@@ -228,7 +221,19 @@ BarWidget {
                                 }
                             }
                         }
-                    }
+
+                        Text {
+                            width: Math.max(0, parent.width - openDirectoryButton.width - 8)
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: root.syncDirectory.endsWith("/")
+                                ? root.syncDirectory
+                                : root.syncDirectory + "/"
+                            textFormat: Text.PlainText
+                            wrapMode: Text.WrapAnywhere
+                            color: "#888888"
+                            font.pixelSize: 12
+                        }
+                      }
 
                     Text {
                         width: parent.width
