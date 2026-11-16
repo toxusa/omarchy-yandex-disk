@@ -143,11 +143,28 @@ BarWidget {
             Item {
                 id: iconContent
 
-                readonly property bool syncing:
-                    root.diskState === "busy" || root.diskState === "index"
                 readonly property bool stopped: root.diskState === "stopped"
                 readonly property bool problem:
-                    ["error", "not_installed", "unknown"].indexOf(root.diskState) >= 0
+                    root.diskState === "error" || root.diskState === "unknown"
+
+                readonly property string stateGlyph: {
+                    switch (root.diskState) {
+                    case "idle":
+                        return ""
+                    case "busy":
+                        return "\uf021"
+                    case "index":
+                        return "\uf002"
+                    case "stopped":
+                        return "\uf04c"
+                    case "not_installed":
+                        return "\uf019"
+                    case "loading":
+                        return "\uf254"
+                    default:
+                        return "\uf12a"
+                    }
+                }
 
                 YandexDiskIcon {
                     anchors.centerIn: parent
@@ -157,48 +174,39 @@ BarWidget {
                     opacity: iconContent.stopped ? 0.55 : 1.0
                 }
 
-                Rectangle {
-                    id: stateIndicator
+                Item {
+                    id: stateBadge
                     anchors.right: parent.right
                     anchors.bottom: parent.bottom
-                    width: 7
-                    height: 7
-                    radius: width / 2
+                    width: 11
+                    height: 11
+                    visible: iconContent.stateGlyph.length > 0
 
-                    color: iconContent.stopped
-                        ? "transparent"
-                        : iconContent.problem
+                    OpticalGlyph {
+                        anchors.fill: parent
+                        text: iconContent.stateGlyph
+                        fontFamily: barButton.fontFamily
+                        fontSize: 10
+                        color: iconContent.problem
                             ? Commons.Color.urgent
-                            : Commons.Color.foreground
+                            : barButton.foreground
+                    }
 
-                    border.width: iconContent.stopped ? 1 : 0
-                    border.color: Commons.Color.foreground
-                    opacity: root.diskState === "loading" ? 0.4 : 1.0
-
-                    SequentialAnimation on scale {
-                        running: iconContent.syncing
+                    RotationAnimation on rotation {
+                        running: root.diskState === "busy"
+                        from: 0
+                        to: 360
+                        duration: 1800
                         loops: Animation.Infinite
-
-                        NumberAnimation {
-                            from: 1.0
-                            to: 0.6
-                            duration: 600
-                        }
-
-                        NumberAnimation {
-                            from: 0.6
-                            to: 1.0
-                            duration: 600
-                        }
 
                         onRunningChanged: {
                             if (!running)
-                                stateIndicator.scale = 1.0
+                                stateBadge.rotation = 0
                         }
                     }
                 }
             }
-        }
+          }
 
         onPressed: function(buttonCode) {
             if (buttonCode === Qt.LeftButton)
