@@ -2,6 +2,16 @@
 
 A minimal Yandex Disk integration for the Omarchy bar.
 
+## Screenshots
+
+### Bar widget
+
+<img src="assets/screenshots/bar-icon.png" alt="Yandex Disk bar widget" width="35">
+
+### Synchronization progress
+
+<img src="assets/screenshots/sync-progress.png" alt="Yandex Disk popup showing synchronization progress and recent files" width="521">
+
 ## Features
 
 - Displays the daemon status in the bar.
@@ -42,7 +52,7 @@ or change autostart settings.
 ## Installation
 
 ```bash
-omarchy plugin add [https://github.com/toxusa/omarchy-yandex-disk.git](https://github.com/toxusa/omarchy-yandex-disk.git) --enable
+omarchy plugin add https://github.com/toxusa/omarchy-yandex-disk.git --enable
 ```
 
 To update an installed copy:
