@@ -177,7 +177,9 @@ BarWidget {
                 Item {
                     id: stateBadge
                     anchors.right: parent.right
+                    anchors.rightMargin: -4
                     anchors.bottom: parent.bottom
+                    anchors.bottomMargin: -4
                     width: 11
                     height: 11
                     visible: iconContent.stateGlyph.length > 0
