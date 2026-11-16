@@ -9,16 +9,27 @@ A minimal Yandex Disk integration for the Omarchy bar.
 - Opens a popup with Start and Stop controls.
 - Uses the official Yandex Disk CLI directly, without systemd integration.
 - Uses the Omarchy theme foreground color.
+- Displays status adapter messages and non-zero daemon control exit errors
+  in the popup.
+- Offers an Install button when the Yandex Disk CLI is not found.
+- Opens an interactive AUR installer in a terminal using yay.
 
 ## Requirements
 
 - Omarchy with shell plugin support.
 - Python 3.
-- The official `yandex-disk` CLI, installed and configured.
+- The official `yandex-disk` CLI for status monitoring and daemon controls.
 
-On Arch Linux, the client is available as `yandex-disk` in the AUR.
+If the client is missing, the popup offers an Install button. Installation
+requires `yay` and `omarchy-launch-terminal`.
 
-Automatic client installation and initial account setup are not implemented.
+The installer runs `yay -S --needed aur/yandex-disk` in a separate terminal,
+without `--noconfirm`. Review the AUR build files and installation prompts
+before proceeding.
+
+Account authorization and initial client configuration must be completed
+separately. The installer does not configure an account, start the daemon,
+or change autostart settings.
 
 ## Installation
 
@@ -44,6 +55,19 @@ Click the bar widget to open the popup.
 
 Stopping the daemon interrupts synchronization. Use Start to resume it.
 
+When the CLI is not found, Start and Stop are replaced by an Install button.
+Click Install to open the installer terminal. The installer asks for
+confirmation before invoking yay and waits for Enter before closing.
+
+Status polling continues while the installer is open. Once the CLI becomes
+available, the widget returns to the normal status and control view.
+Installing the package alone does not authorize or configure the client.
+
+Status adapter messages and daemon control exit errors are displayed
+separately in the popup. A control error is cleared before the next control
+or installation attempt. A status message is replaced on each status
+response and cleared when that response has no message.
+
 ## Status adapter
 
 To query the status independently of the widget:
@@ -66,8 +90,14 @@ The adapter only reads the status. It does not change client configuration.
 
 ## Current limitations
 
-- Client installation and authorization must be completed separately.
-- Control command output is logged, but command errors are not yet shown
-  in the popup.
+- Account authorization and initial client configuration must be completed
+  separately.
+- Installation requires yay and the Omarchy terminal launcher.
+- Installation progress and results are shown in the terminal, not in the
+  popup. The widget does not track the package manager's exit status.
+- Daemon control errors show a generic message with an exit code or an
+  abnormal termination message. Detailed command output is only logged.
+- Daemon control commands have no plugin-defined timeout.
+- Failure to start a control process is not explicitly handled.
 - Sync progress, storage quota, and recent files are not displayed.
 - Each widget instance polls the client independently.
