@@ -1,19 +1,58 @@
 # omarchy-yandex-disk
 
-A work-in-progress Yandex Disk integration for Omarchy.
+A minimal Yandex Disk integration for the Omarchy bar.
 
-## MVP scope
+## Features
 
-- Display the Yandex Disk daemon status.
-- Start and stop the daemon using the official CLI.
+- Displays the daemon status in the bar.
+- Refreshes the status every 5 seconds.
+- Opens a popup with Start and Stop controls.
+- Uses the official Yandex Disk CLI directly, without systemd integration.
+- Uses the Omarchy theme foreground color.
 
-This repository is not yet an installable Omarchy plugin.
+## Requirements
 
-## Current implementation
+- Omarchy with shell plugin support.
+- Python 3.
+- The official `yandex-disk` CLI, installed and configured.
 
-`yd-status.py` queries `yandex-disk status` and prints a JSON object.
+On Arch Linux, the client is available as `yandex-disk` in the AUR.
 
-Supported states:
+Automatic client installation and initial account setup are not implemented.
+
+## Installation
+
+```bash
+omarchy plugin add [https://github.com/toxusa/omarchy-yandex-disk.git](https://github.com/toxusa/omarchy-yandex-disk.git) --enable
+```
+
+If the widget does not appear or still shows the previous version after an
+update, restarting the shell helped during development:
+
+```bash
+omarchy restart shell
+```
+
+## Usage
+
+Click the bar widget to open the popup.
+
+- Start is available when the daemon is stopped.
+- Stop is available when the daemon reports `idle`, `busy`, or `index`.
+- Both controls are disabled while a control command is running.
+- Status changes may take up to one polling interval to appear.
+
+Stopping the daemon interrupts synchronization. Use Start to resume it.
+
+## Status adapter
+
+To query the status independently of the widget:
+
+```bash
+python3 yd-status.py
+```
+
+The adapter prints one JSON object with a `state` field:
 
 - `not_installed`
 - `stopped`
@@ -23,16 +62,12 @@ Supported states:
 - `unknown`
 - `error`
 
-## Requirements
+The adapter only reads the status. It does not change client configuration.
 
-- Python 3
-- The official `yandex-disk` CLI, configured for your account
+## Current limitations
 
-## Usage
-
-```bash
-python3 yd-status.py
-```
-
-The status script does not start or stop the daemon and does not modify
-the Yandex Disk configuration.
+- Client installation and authorization must be completed separately.
+- Control command output is logged, but command errors are not yet shown
+  in the popup.
+- Sync progress, storage quota, and recent files are not displayed.
+- Each widget instance polls the client independently.
