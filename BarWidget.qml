@@ -162,17 +162,19 @@ BarWidget {
         }
     }
     Process {
-        id: controlProcess
-        onExited: function(exitCode, exitStatus) {
-            if (exitStatus !== 0) {
-                root.controlError =
-                    "Command '" + root.controlAction + "' terminated abnormally."
-            } else if (exitCode !== 0) {
-                root.controlError =
-                    "Command '" + root.controlAction
-                    + "' failed (exit code " + exitCode + ")."
-            }
-        }
+      id: controlProcess
+      onExited: function(exitCode, exitStatus) {
+          if (exitStatus !== 0) {
+              root.controlError =
+                  "Command '" + root.controlAction + "' terminated abnormally."
+          } else if (exitCode !== 0) {
+              root.controlError =
+                  "Command '" + root.controlAction
+                  + "' failed (exit code " + exitCode + ")."
+          }
+          if (statusProcess.running === false)
+              statusProcess.running = true
+      }
         stdout: StdioCollector {
             onStreamFinished: {
                 if (this.text.trim().length > 0)
