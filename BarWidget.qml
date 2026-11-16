@@ -20,6 +20,7 @@ BarWidget {
     property bool controlTimedOut: false
     property bool opened: false
     property bool popoutSwitchClosing: false
+    property string syncMessage: ""
 
     function open() {
         root.opened = true
@@ -47,7 +48,7 @@ BarWidget {
         installProcess.running = true
     }
     function controlDaemon(action) {
-        if (controlProcess.running)
+        if (controlProcess.running || syncProcess.running)
             return
 
         if (action === "start") {
@@ -71,6 +72,16 @@ BarWidget {
               return
 
           statusProcess.running = true
+    }
+    function syncNow() {
+        if (syncProcess.running || controlProcess.running)
+            return
+
+        if (["idle", "busy", "index"].indexOf(root.diskState) === -1)
+            return
+
+        root.syncMessage = ""
+        syncProcess.running = true
     }
 
     implicitWidth: label.implicitWidth + 16
@@ -178,6 +189,7 @@ BarWidget {
                         text: "Start"
                         enabled: root.diskState === "stopped"
                             && controlProcess.running === false
+                            && syncProcess.running === false
                         onClicked: root.controlDaemon("start")
                         visible: root.diskState !== "not_installed"
                     }
@@ -186,6 +198,7 @@ BarWidget {
                         text: "Stop"
                         enabled: ["idle", "busy", "index"].indexOf(root.diskState) >= 0
                             && controlProcess.running === false
+                            && syncProcess.running === false
                         onClicked: root.controlDaemon("stop")
                         visible: root.diskState !== "not_installed"
                     }
@@ -200,11 +213,30 @@ BarWidget {
                         enabled: statusProcess.running === false
                         onClicked: root.refreshStatus()
                     }
+                    Controls.Button {
+                        text: syncProcess.running ? "Syncing..." : "Sync"
+                        visible: root.diskState !== "not_installed"
+                        enabled: ["idle", "busy", "index"].indexOf(root.diskState) >= 0
+                            && controlProcess.running === false
+                            && syncProcess.running === false
+                        onClicked: root.syncNow()
+                    }
                 }
                 Text {
                     width: parent.width
                     visible: root.controlError.length > 0
                     text: root.controlError
+                    textFormat: Text.PlainText
+                    wrapMode: Text.Wrap
+                    color: Commons.Color.foreground
+                    font.pixelSize: 13
+                }
+                Text {
+                    width: parent.width
+                    visible: syncProcess.running || root.syncMessage.length > 0
+                    text: syncProcess.running
+                        ? "Sync command is running; waiting for synchronization to finish."
+                        : root.syncMessage
                     textFormat: Text.PlainText
                     wrapMode: Text.Wrap
                     color: Commons.Color.foreground
@@ -350,6 +382,39 @@ BarWidget {
             onStreamFinished: {
                 if (this.text.trim().length > 0)
                     console.warn("Yandex Disk installer:", this.text.trim())
+            }
+        }
+    }
+    Process {
+        id: syncProcess
+        command: ["yandex-disk", "sync"]
+
+        onStarted: root.refreshStatus()
+
+        onExited: function(exitCode, exitStatus) {
+            if (exitStatus !== 0) {
+                root.syncMessage = "Sync command terminated abnormally."
+            } else if (exitCode !== 0) {
+                root.syncMessage =
+                    "Sync command failed (exit code " + exitCode + ")."
+            } else {
+                root.syncMessage = "Sync command completed successfully."
+            }
+
+            root.refreshStatus()
+        }
+
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (this.text.trim().length > 0)
+                    console.log("Yandex Disk sync:", this.text.trim())
+            }
+       }
+
+        stderr: StdioCollector {
+            onStreamFinished: {
+                if (this.text.trim().length > 0)
+                    console.warn("Yandex Disk sync:", this.text.trim())
             }
         }
     }
