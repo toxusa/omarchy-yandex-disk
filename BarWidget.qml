@@ -9,6 +9,7 @@ BarWidget {
     moduleName: "toxusa.yandex-disk"
 
     property string diskState: "loading"
+    property string statusMessage: ""
     property string controlError: ""
     property string controlAction: ""
     property bool opened: false
@@ -108,7 +109,15 @@ BarWidget {
                     color: Commons.Color.foreground
                     font.pixelSize: 14
                 }
-
+                Text {
+                    width: parent.width
+                    visible: root.statusMessage.length > 0
+                    text: root.statusMessage
+                    textFormat: Text.PlainText
+                    wrapMode: Text.Wrap
+                    color: Commons.Color.foreground
+                    font.pixelSize: 13
+                }
                 Row {
                     spacing: 12
 
@@ -174,11 +183,13 @@ BarWidget {
 
         stdout: StdioCollector {
             onStreamFinished: {
-                try {
+              try {
                     const result = JSON.parse(this.text)
                     root.diskState = result.state || "unknown"
+                    root.statusMessage = result.message || ""
                 } catch (error) {
                     root.diskState = "error"
+                    root.statusMessage = "Invalid response from status adapter."
                     console.warn("Yandex Disk: invalid status response:", this.text)
                 }
             }
