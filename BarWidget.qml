@@ -1,12 +1,36 @@
 import QtQuick
 import Quickshell.Io
 import qs.Ui
+import QtQuick.Controls as Controls
+import qs.Commons as Commons
 
 BarWidget {
     id: root
     moduleName: "toxusa.yandex-disk"
 
     property string diskState: "loading"
+    property bool opened: false
+    property bool popoutSwitchClosing: false
+
+    function open() {
+        root.opened = true
+    }
+
+    function close() {
+        root.opened = false
+    }
+
+    function toggle() {
+        root.opened = root.opened === false
+    }
+
+    function closeForPopoutSwitch() {
+        root.popoutSwitchClosing = true
+        root.close()
+        Qt.callLater(function() {
+            root.popoutSwitchClosing = false
+        })
+    }
 
     implicitWidth: label.implicitWidth + 16
     implicitHeight: barSize
@@ -15,8 +39,70 @@ BarWidget {
         id: label
         anchors.centerIn: parent
         text: "YD: " + root.diskState
-        color: "white"
+        color: Commons.Color.foreground
         font.pixelSize: 14
+    }
+    MouseArea {
+        anchors.fill: parent
+        cursorShape: Qt.PointingHandCursor
+        onClicked: root.toggle()
+    }
+
+    KeyboardPanel {
+        id: popup
+        anchorItem: root
+        owner: root
+        bar: root.bar
+        open: root.opened
+        focusTarget: popupContent
+
+        contentWidth: 280
+        contentHeight: 160
+        padding: 16
+
+        Item {
+            id: popupContent
+            anchors.fill: parent
+
+            Keys.onPressed: function(event) {
+                if (event.key === Qt.Key_Escape) {
+                    root.close()
+                    event.accepted = true
+                }
+            }
+
+            Column {
+                anchors.fill: parent
+                spacing: 12
+
+                Text {
+                    text: "Yandex Disk"
+                    color: Commons.Color.foreground
+                    font.pixelSize: 16
+                    font.bold: true
+                }
+
+                Text {
+                    text: "Status: " + root.diskState
+                    color: Commons.Color.foreground
+                    font.pixelSize: 14
+                }
+
+                Row {
+                    spacing: 12
+
+                    Controls.Button {
+                        text: "Start"
+                        enabled: false
+                    }
+
+                    Controls.Button {
+                        text: "Stop"
+                        enabled: false
+                    }
+                }
+            }
+        }
     }
 
     Process {
