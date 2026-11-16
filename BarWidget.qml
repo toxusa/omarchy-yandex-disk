@@ -190,15 +190,44 @@ BarWidget {
                     spacing: 4
                     visible: root.syncDirectory.length > 0
 
-                    Text {
+                    Row {
                         width: parent.width
-                        text: root.syncDirectory.endsWith("/")
-                            ? root.syncDirectory
-                            : root.syncDirectory + "/"
-                        textFormat: Text.PlainText
-                        wrapMode: Text.WrapAnywhere
-                        color: "#888888"
-                        font.pixelSize: 12
+                        spacing: 8
+
+                        Text {
+                            width: Math.max(0, parent.width - openDirectoryButton.width - 8)
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: root.syncDirectory.endsWith("/")
+                                ? root.syncDirectory
+                                : root.syncDirectory + "/"
+                            textFormat: Text.PlainText
+                            wrapMode: Text.WrapAnywhere
+                            color: "#888888"
+                            font.pixelSize: 12
+                        }
+
+                        Controls.ToolButton {
+                            id: openDirectoryButton
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 32
+                            height: 28
+                            text: "📂"
+                            font.pixelSize: 18
+                            enabled: root.syncDirectory.length > 0
+
+                            Accessible.name: "Open sync directory"
+                            Controls.ToolTip.visible: hovered
+                            Controls.ToolTip.text: "Open sync directory"
+
+                            onClicked: {
+                                if (root.syncDirectory.length > 0) {
+                                    Commons.Util.execArgv([
+                                        "xdg-open",
+                                        root.syncDirectory
+                                    ])
+                                }
+                            }
+                        }
                     }
 
                     Text {
