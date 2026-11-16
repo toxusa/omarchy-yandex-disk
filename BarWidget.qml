@@ -150,8 +150,10 @@ BarWidget {
                     ["error", "not_installed", "unknown"].indexOf(root.diskState) >= 0
 
                 YandexDiskIcon {
-                    anchors.fill: parent
-                    color: Commons.Color.foreground
+                    anchors.centerIn: parent
+                    width: parent.width * 1.2
+                    height: parent.height * 1.2
+                    color: barButton.foreground
                     opacity: iconContent.stopped ? 0.55 : 1.0
                 }
 

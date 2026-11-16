@@ -25,6 +25,7 @@ Item {
     MultiEffect {
         anchors.fill: sourceImage
         source: sourceImage
+        brightness: 1.0
         colorization: 1.0
         colorizationColor: root.color
     }
