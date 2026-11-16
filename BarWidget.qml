@@ -22,6 +22,51 @@ BarWidget {
     property bool popoutSwitchClosing: false
     property string syncMessage: ""
     property string syncDirectory: ""
+    property real directoryFileCount: -1
+    property real directoryDiskBytes: -1
+    property string directoryStatsError: ""
+    property int directoryStatsGeneration: 0
+    property bool directoryStatsPending: false
+
+    function formatDirectoryStats(fileCount, diskBytes) {
+        const countText = String(fileCount).replace(/\B(?=(\d{3})+(?!\d))/g, " ")
+        const sizeText = (diskBytes / 1073741824).toFixed(2)
+        return countText + " files · " + sizeText + " GiB on disk"
+    }
+    function refreshDirectoryStats() {
+        if (root.syncDirectory.length === 0)
+            return
+
+        if (directoryStatsProcess.running) {
+            root.directoryStatsPending = true
+            return
+        }
+
+        root.directoryStatsPending = false
+        root.directoryStatsError = ""
+
+        directoryStatsProcess.requestDirectory = root.syncDirectory
+        directoryStatsProcess.requestGeneration = root.directoryStatsGeneration
+        directoryStatsProcess.command = [
+            "python3",
+            decodeURIComponent(
+                Qt.resolvedUrl("yd-directory-stats.py").toString().replace(/^file:\/\//, "")
+            ),
+            root.syncDirectory
+        ]
+        directoryStatsProcess.running = true
+    }
+
+    onSyncDirectoryChanged: {
+        root.directoryStatsGeneration += 1
+        root.directoryFileCount = -1
+        root.directoryDiskBytes = -1
+        root.directoryStatsError = ""
+        root.directoryStatsPending = false
+
+        if (root.syncDirectory.length > 0)
+            root.refreshDirectoryStats()
+    }
 
     function open() {
         root.opened = true
@@ -152,6 +197,30 @@ BarWidget {
                             : root.syncDirectory + "/"
                         textFormat: Text.PlainText
                         wrapMode: Text.WrapAnywhere
+                        color: "#888888"
+                        font.pixelSize: 12
+                    }
+
+                    Text {
+                        width: parent.width
+                        visible: root.directoryFileCount >= 0
+                            && root.directoryDiskBytes >= 0
+                        text: root.formatDirectoryStats(
+                            root.directoryFileCount,
+                            root.directoryDiskBytes
+                        )
+                        textFormat: Text.PlainText
+                        wrapMode: Text.Wrap
+                        color: "#888888"
+                        font.pixelSize: 12
+                    }
+
+                    Text {
+                        width: parent.width
+                        visible: root.directoryStatsError.length > 0
+                        text: "Directory statistics: " + root.directoryStatsError
+                        textFormat: Text.PlainText
+                        wrapMode: Text.Wrap
                         color: "#888888"
                         font.pixelSize: 12
                     }
@@ -339,6 +408,86 @@ BarWidget {
         }
     }
     Process {
+        id: directoryStatsProcess
+
+        property string requestDirectory: ""
+        property int requestGeneration: -1
+
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (directoryStatsProcess.requestGeneration
+                        !== root.directoryStatsGeneration
+                    || directoryStatsProcess.requestDirectory
+                        !== root.syncDirectory) {
+                    return
+                }
+
+                try {
+                    const result = JSON.parse(this.text)
+
+                    if (result.state !== "ok") {
+                        root.directoryStatsError =
+                            typeof result.message === "string"
+                            && result.message.length > 0
+                                ? result.message
+                                : "Directory statistics request failed."
+                        return
+                    }
+
+                    if (typeof result.file_count !== "number"
+                        || !Number.isSafeInteger(result.file_count)
+                        || result.file_count < 0
+                        || typeof result.disk_bytes !== "number"
+                        || !Number.isSafeInteger(result.disk_bytes)
+                        || result.disk_bytes < 0) {
+                        root.directoryStatsError =
+                            "Invalid values from directory statistics adapter."
+                        return
+                    }
+
+                    root.directoryFileCount = result.file_count
+                    root.directoryDiskBytes = result.disk_bytes
+                    root.directoryStatsError = ""
+                } catch (error) {
+                    root.directoryStatsError =
+                        "Invalid response from directory statistics adapter."
+                    console.warn(
+                        "Yandex Disk: invalid directory statistics response:",
+                        this.text
+                    )
+                }
+            }
+        }
+
+        stderr: StdioCollector {
+            onStreamFinished: {
+                if (this.text.trim().length > 0) {
+                    console.warn(
+                        "Yandex Disk directory statistics:",
+                        this.text.trim()
+                    )
+                }
+            }
+        }
+
+        onExited: function(exitCode, exitStatus) {
+            if (directoryStatsProcess.requestGeneration
+                    === root.directoryStatsGeneration
+                && directoryStatsProcess.requestDirectory
+                    === root.syncDirectory
+                && (exitStatus !== 0 || exitCode !== 0)) {
+                root.directoryStatsError =
+                    "Directory statistics command failed (exit code "
+                    + exitCode + ")."
+            }
+
+            Qt.callLater(function() {
+                if (root.directoryStatsPending)
+                    root.refreshDirectoryStats()
+            })
+        }
+    }
+    Process {
         id: statusProcess
         command: [
             "python3",
@@ -423,6 +572,7 @@ BarWidget {
             }
 
             root.refreshStatus()
+            root.refreshDirectoryStats()
         }
 
         stdout: StdioCollector {
@@ -438,6 +588,12 @@ BarWidget {
                     console.warn("Yandex Disk sync:", this.text.trim())
             }
         }
+    }
+    Timer {
+        interval: 300000
+        running: root.syncDirectory.length > 0
+        repeat: true
+        onTriggered: root.refreshDirectoryStats()
     }
     Timer {
         interval: 5000
