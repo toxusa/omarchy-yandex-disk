@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import re
 import json
 import os
 import shutil
@@ -10,8 +11,20 @@ def parse_status(output):
     state = None
     recent_files = []
     reading_recent = False
+    progress_percent = None
+    progress_text = ""
 
     for line in output.splitlines():
+        if line.startswith("Sync progress:"):
+            progress_text = line[len("Sync progress:"):].strip()
+            match = re.search(
+                r"\(\s*(\d+(?:\.\d+)?)\s*%\s*\)\s*$",
+                progress_text,
+            )
+            if match:
+                value = float(match.group(1))
+                if 0 <= value <= 100:
+                    progress_percent = value
         if line.startswith(state_prefix):
             state = line[len(state_prefix):].strip()
 
@@ -29,7 +42,11 @@ def parse_status(output):
             else:
                 reading_recent = False
 
-    result = {"recent_files": recent_files[:10]}
+    result = {
+        "recent_files": recent_files[:10],
+        "progress_percent": progress_percent,
+        "progress_text": progress_text,
+    }
 
     if state in {"idle", "busy", "index"}:
         result["state"] = state

@@ -13,6 +13,8 @@ BarWidget {
     property string diskState: "loading"
     property string statusMessage: ""
     property var recentFiles: []
+    property real progressPercent: -1
+    property string progressText: ""
     property string controlError: ""
     property string controlAction: ""
     property bool controlTimedOut: false
@@ -132,6 +134,34 @@ BarWidget {
                     color: Commons.Color.foreground
                     font.pixelSize: 14
                 }
+                Column {
+                    width: parent.width
+                    spacing: 6
+                    visible: root.progressText.length > 0
+                        || root.progressPercent >= 0
+
+                    Text {
+                        width: parent.width
+                        text: root.progressText.length > 0
+                            ? "Sync progress: " + root.progressText
+                            : "Sync progress: " + root.progressPercent + "%"
+                        textFormat: Text.PlainText
+                        wrapMode: Text.Wrap
+                        color: Commons.Color.foreground
+                        font.pixelSize: 13
+                    }
+
+                    Controls.ProgressBar {
+                        width: parent.width
+                        visible: root.progressPercent >= 0
+                        from: 0
+                        to: 100
+                        value: root.progressPercent >= 0
+                            ? root.progressPercent
+                            : 0
+                    }
+                }
+
                 Text {
                     width: parent.width
                     visible: root.statusMessage.length > 0
@@ -277,11 +307,25 @@ BarWidget {
                     root.recentFiles = Array.isArray(result.recent_files)
                        ? result.recent_files
                        : []
+                    root.progressPercent =
+                        typeof result.progress_percent === "number"
+                        && Number.isFinite(result.progress_percent)
+                        && result.progress_percent >= 0
+                        && result.progress_percent <= 100
+                            ? result.progress_percent
+                            : -1
+
+                    root.progressText =
+                        typeof result.progress_text === "string"
+                        ? result.progress_text
+                        : ""
                 } catch (error) {
                     root.diskState = "error"
                     root.statusMessage = "Invalid response from status adapter."
                     console.warn("Yandex Disk: invalid status response:", this.text)
                     root.recentFiles = []
+                    root.progressPercent = -1
+                    root.progressText = ""
                 }
             }
         }
