@@ -130,20 +130,78 @@ BarWidget {
         syncProcess.running = true
     }
 
-    implicitWidth: label.implicitWidth + 16
+    implicitWidth: barButton.implicitWidth
     implicitHeight: barSize
 
-    Text {
-        id: label
-        anchors.centerIn: parent
-        text: "YD: " + root.diskState
-        color: Commons.Color.foreground
-        font.pixelSize: 14
-    }
-    MouseArea {
+    BarIconButton {
+        id: barButton
         anchors.fill: parent
-        cursorShape: Qt.PointingHandCursor
-        onClicked: root.toggle()
+        bar: root.bar
+        tooltipText: "Yandex Disk: " + root.diskState
+
+        iconComponent: Component {
+            Item {
+                id: iconContent
+
+                readonly property bool syncing:
+                    root.diskState === "busy" || root.diskState === "index"
+                readonly property bool stopped: root.diskState === "stopped"
+                readonly property bool problem:
+                    ["error", "not_installed", "unknown"].indexOf(root.diskState) >= 0
+
+                YandexDiskIcon {
+                    anchors.fill: parent
+                    color: Commons.Color.foreground
+                    opacity: iconContent.stopped ? 0.55 : 1.0
+                }
+
+                Rectangle {
+                    id: stateIndicator
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    width: 7
+                    height: 7
+                    radius: width / 2
+
+                    color: iconContent.stopped
+                        ? "transparent"
+                        : iconContent.problem
+                            ? Commons.Color.urgent
+                            : Commons.Color.foreground
+
+                    border.width: iconContent.stopped ? 1 : 0
+                    border.color: Commons.Color.foreground
+                    opacity: root.diskState === "loading" ? 0.4 : 1.0
+
+                    SequentialAnimation on scale {
+                        running: iconContent.syncing
+                        loops: Animation.Infinite
+
+                        NumberAnimation {
+                            from: 1.0
+                            to: 0.6
+                            duration: 600
+                        }
+
+                        NumberAnimation {
+                            from: 0.6
+                            to: 1.0
+                            duration: 600
+                        }
+
+                        onRunningChanged: {
+                            if (!running)
+                                stateIndicator.scale = 1.0
+                        }
+                    }
+                }
+            }
+        }
+
+        onPressed: function(buttonCode) {
+            if (buttonCode === Qt.LeftButton)
+                root.toggle()
+        }
     }
 
     KeyboardPanel {
