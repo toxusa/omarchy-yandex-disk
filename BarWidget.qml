@@ -28,6 +28,82 @@ BarWidget {
     property int directoryStatsGeneration: 0
     property bool directoryStatsPending: false
 
+    property int unknownCount: 0
+    property bool recoveryAttempted: false
+    property string recoveryPhase: ""
+    property string recoveryMessage: ""
+    property int statusGeneration: 0
+    readonly property bool recoveryActive: recoveryPhase.length > 0
+
+    function failRecovery(message) {
+        recoveryWaitTimer.stop()
+        root.recoveryPhase = ""
+        root.recoveryMessage = "Automatic recovery failed: " + message
+        root.controlError = root.recoveryMessage
+    }
+
+    function issueRecoveryCommand(action) {
+        root.statusGeneration += 1
+        root.controlError = ""
+        root.controlAction = action
+        root.controlTimedOut = false
+        controlProcess.command = ["yandex-disk", action]
+        controlProcess.running = true
+    }
+
+    function handleRecoveryStatus(state, generation) {
+        if (generation !== root.statusGeneration)
+            return
+
+        if (root.recoveryPhase === "waiting-stop") {
+            if (state === "stopped") {
+                if (controlProcess.running || syncProcess.running)
+                    return
+                recoveryWaitTimer.stop()
+                root.recoveryPhase = "starting"
+                root.recoveryMessage = "Automatic recovery: starting daemon."
+                root.issueRecoveryCommand("start")
+            } else if (state === "error" || state === "not_installed") {
+                root.failRecovery("could not confirm stopped state.")
+            }
+            return
+        }
+
+        if (root.recoveryPhase === "waiting-start") {
+            if (["idle", "busy", "index"].indexOf(state) >= 0) {
+                recoveryWaitTimer.stop()
+                root.recoveryPhase = ""
+                root.recoveryMessage = "Automatic recovery completed successfully."
+            } else if (state === "error" || state === "not_installed") {
+                root.failRecovery("could not confirm running state.")
+            }
+            return
+        }
+
+        if (root.recoveryActive)
+            return
+
+        if (state !== "unknown") {
+            root.unknownCount = 0
+            return
+        }
+
+        if (controlProcess.running || syncProcess.running
+            || installProcess.running) {
+            root.unknownCount = 0
+            return
+        }
+
+        root.unknownCount = Math.min(root.unknownCount + 1, 3)
+        if (root.unknownCount < 3 || root.recoveryAttempted)
+            return
+
+        root.recoveryAttempted = true
+        root.recoveryPhase = "stopping"
+        root.recoveryMessage = "Automatic recovery: stopping daemon."
+        root.issueRecoveryCommand("stop")
+    }
+
     function formatDirectoryStats(fileCount, diskBytes) {
         const countText = String(fileCount).replace(/\B(?=(\d{3})+(?!\d))/g, " ")
         const sizeText = (diskBytes / 1073741824).toFixed(2)
@@ -88,24 +164,27 @@ BarWidget {
         })
       }
     function installClient() {
-        if (root.diskState !== "not_installed" || installProcess.running)
+        if (root.recoveryActive
+            || root.diskState !== "not_installed" || installProcess.running)
             return
         root.controlError = ""
         installProcess.running = true
     }
     function controlDaemon(action) {
-        if (controlProcess.running || syncProcess.running)
+        if (root.recoveryActive || controlProcess.running || syncProcess.running)
             return
 
         if (action === "start") {
             if (root.diskState !== "stopped")
                 return
         } else if (action === "stop") {
-            if (["idle", "busy", "index"].indexOf(root.diskState) === -1)
+            if (["idle", "busy", "index", "unknown"].indexOf(root.diskState) === -1)
                 return
         } else {
             return
         }
+        root.statusGeneration += 1
+        root.unknownCount = 0
         root.controlError = ""
         root.controlAction = action
         root.controlTimedOut = false
@@ -120,12 +199,14 @@ BarWidget {
           statusProcess.running = true
     }
     function syncNow() {
-        if (syncProcess.running || controlProcess.running)
+        if (root.recoveryActive || syncProcess.running || controlProcess.running)
             return
 
         if (["idle", "busy", "index"].indexOf(root.diskState) === -1)
             return
 
+        root.statusGeneration += 1
+        root.unknownCount = 0
         root.syncMessage = ""
         syncProcess.running = true
     }
@@ -400,15 +481,17 @@ BarWidget {
                         enabled: root.diskState === "stopped"
                             && controlProcess.running === false
                             && syncProcess.running === false
+                            && !root.recoveryActive
                         onClicked: root.controlDaemon("start")
                         visible: root.diskState !== "not_installed"
                     }
 
                     Controls.Button {
                         text: "Stop"
-                        enabled: ["idle", "busy", "index"].indexOf(root.diskState) >= 0
+                        enabled: ["idle", "busy", "index", "unknown"].indexOf(root.diskState) >= 0
                             && controlProcess.running === false
                             && syncProcess.running === false
+                            && !root.recoveryActive
                         onClicked: root.controlDaemon("stop")
                         visible: root.diskState !== "not_installed"
                     }
@@ -416,6 +499,7 @@ BarWidget {
                         text: "Install"
                         visible: root.diskState === "not_installed"
                         enabled: installProcess.running === false
+                            && !root.recoveryActive
                         onClicked: root.installClient()
                     }
                     Controls.Button {
@@ -429,8 +513,19 @@ BarWidget {
                         enabled: ["idle", "busy", "index"].indexOf(root.diskState) >= 0
                             && controlProcess.running === false
                             && syncProcess.running === false
+                            && !root.recoveryActive
                         onClicked: root.syncNow()
                     }
+                }
+                Text {
+                    width: parent.width
+                    visible: root.recoveryMessage.length > 0
+                        && root.recoveryMessage !== root.controlError
+                    text: root.recoveryMessage
+                    textFormat: Text.PlainText
+                    wrapMode: Text.Wrap
+                    color: Commons.Color.foreground
+                    font.pixelSize: 13
                 }
                 Text {
                     width: parent.width
@@ -515,8 +610,27 @@ BarWidget {
                         + "' failed (exit code " + exitCode + ")."
                 }
             }
-            if (statusProcess.running === false)
-                statusProcess.running = true
+            const recovering = root.recoveryPhase === "stopping"
+                || root.recoveryPhase === "starting"
+
+            if (recovering) {
+                if (root.controlTimedOut || exitStatus !== 0 || exitCode !== 0) {
+                    root.failRecovery(
+                        root.controlError || "control command failed."
+                    )
+                } else {
+                    root.recoveryPhase = root.recoveryPhase === "stopping"
+                        ? "waiting-stop" : "waiting-start"
+                    root.recoveryMessage = root.recoveryPhase === "waiting-stop"
+                        ? "Automatic recovery: waiting for stopped state."
+                        : "Automatic recovery: checking running state."
+                    recoveryWaitTimer.restart()
+                }
+            }
+
+            Qt.callLater(function() {
+                root.refreshStatus()
+            })
         }
         stdout: StdioCollector {
             onStreamFinished: {
@@ -614,6 +728,25 @@ BarWidget {
     }
     Process {
         id: statusProcess
+
+        property int requestGeneration: -1
+        property string parsedState: ""
+
+        onStarted: {
+            requestGeneration = root.statusGeneration
+            parsedState = ""
+        }
+
+        onExited: function(exitCode, exitStatus) {
+            const generation = requestGeneration
+            const state = exitStatus === 0 && exitCode === 0
+                ? (parsedState || "error") : "error"
+
+            Qt.callLater(function() {
+                root.handleRecoveryStatus(state, generation)
+            })
+        }
+
         command: [
             "python3",
             decodeURIComponent(Qt.resolvedUrl("yd-status.py").toString().replace(/^file:\/\//, ""))
@@ -622,9 +755,13 @@ BarWidget {
 
         stdout: StdioCollector {
             onStreamFinished: {
+                if (statusProcess.requestGeneration !== root.statusGeneration)
+                    return
+
               try {
                     const result = JSON.parse(this.text)
                     root.diskState = result.state || "unknown"
+                    statusProcess.parsedState = root.diskState
                     root.statusMessage = result.message || ""
                     root.syncDirectory =
                           typeof result.sync_dir === "string"
@@ -647,6 +784,7 @@ BarWidget {
                         : ""
                 } catch (error) {
                     root.diskState = "error"
+                    statusProcess.parsedState = "error"
                     root.statusMessage = "Invalid response from status adapter."
                     console.warn("Yandex Disk: invalid status response:", this.text)
                     root.recentFiles = []
@@ -726,6 +864,20 @@ BarWidget {
         repeat: true
         onTriggered: root.refreshStatus()
     }
+    Timer {
+        id: recoveryWaitTimer
+        interval: 30000
+        repeat: false
+
+        onTriggered: {
+            if (root.recoveryPhase === "waiting-stop") {
+                root.failRecovery("stopped state was not confirmed within 30 seconds.")
+            } else if (root.recoveryPhase === "waiting-start") {
+                root.failRecovery("running state was not confirmed within 30 seconds.")
+            }
+        }
+    }
+
     Timer {
         id: controlTimeoutTimer
         interval: 15000
