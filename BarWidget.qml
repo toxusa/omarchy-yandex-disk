@@ -31,6 +31,23 @@ BarWidget {
             root.popoutSwitchClosing = false
         })
     }
+    function controlDaemon(action) {
+        if (controlProcess.running)
+            return
+
+        if (action === "start") {
+            if (root.diskState !== "stopped")
+                return
+        } else if (action === "stop") {
+            if (["idle", "busy", "index"].indexOf(root.diskState) === -1)
+                return
+        } else {
+            return
+        }
+
+        controlProcess.command = ["yandex-disk", action]
+        controlProcess.running = true
+      }
 
     implicitWidth: label.implicitWidth + 16
     implicitHeight: barSize
@@ -93,18 +110,38 @@ BarWidget {
 
                     Controls.Button {
                         text: "Start"
-                        enabled: false
+                        enabled: root.diskState === "stopped"
+                            && controlProcess.running === false
+                        onClicked: root.controlDaemon("start")
                     }
 
                     Controls.Button {
                         text: "Stop"
-                        enabled: false
+                        enabled: ["idle", "busy", "index"].indexOf(root.diskState) >= 0
+                            && controlProcess.running === false
+                        onClicked: root.controlDaemon("stop")
                     }
                 }
             }
         }
     }
+    Process {
+        id: controlProcess
 
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (this.text.trim().length > 0)
+                    console.log("Yandex Disk control:", this.text.trim())
+            }
+        }
+
+        stderr: StdioCollector {
+            onStreamFinished: {
+                if (this.text.trim().length > 0)
+                    console.warn("Yandex Disk control:", this.text.trim())
+            }
+        }
+    }
     Process {
         id: statusProcess
         command: [
