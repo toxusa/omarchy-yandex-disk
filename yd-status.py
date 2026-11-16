@@ -13,6 +13,8 @@ def parse_status(output):
     reading_recent = False
     progress_percent = None
     progress_text = ""
+    sync_dir = ""
+    directory_prefix = "Path to Yandex.Disk directory:"
 
     for line in output.splitlines():
         if line.startswith("Sync progress:"):
@@ -27,6 +29,11 @@ def parse_status(output):
                     progress_percent = value
         if line.startswith(state_prefix):
             state = line[len(state_prefix):].strip()
+
+        if line.startswith(directory_prefix):
+            value = line[len(directory_prefix):].strip()
+            if len(value) >= 2 and value.startswith("'") and value.endswith("'"):
+                sync_dir = value[1:-1]
 
         if line.strip() == "Last synchronized items:":
             reading_recent = True
@@ -46,6 +53,7 @@ def parse_status(output):
         "recent_files": recent_files[:10],
         "progress_percent": progress_percent,
         "progress_text": progress_text,
+        "sync_dir": sync_dir,
     }
 
     if state in {"idle", "busy", "index"}:

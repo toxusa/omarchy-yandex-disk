@@ -21,6 +21,7 @@ BarWidget {
     property bool opened: false
     property bool popoutSwitchClosing: false
     property string syncMessage: ""
+    property string syncDirectory: ""
 
     function open() {
         root.opened = true
@@ -139,7 +140,22 @@ BarWidget {
                     font.pixelSize: 16
                     font.bold: true
                 }
+                Column {
+                    width: parent.width
+                    spacing: 4
+                    visible: root.syncDirectory.length > 0
 
+                    Text {
+                        width: parent.width
+                        text: root.syncDirectory.endsWith("/")
+                            ? root.syncDirectory
+                            : root.syncDirectory + "/"
+                        textFormat: Text.PlainText
+                        wrapMode: Text.WrapAnywhere
+                        color: "#888888"
+                        font.pixelSize: 12
+                    }
+                }
                 Text {
                     text: "Status: " + root.diskState
                     color: Commons.Color.foreground
@@ -336,6 +352,10 @@ BarWidget {
                     const result = JSON.parse(this.text)
                     root.diskState = result.state || "unknown"
                     root.statusMessage = result.message || ""
+                    root.syncDirectory =
+                          typeof result.sync_dir === "string"
+                          ? result.sync_dir
+                          : ""
                     root.recentFiles = Array.isArray(result.recent_files)
                        ? result.recent_files
                        : []
@@ -358,6 +378,7 @@ BarWidget {
                     root.recentFiles = []
                     root.progressPercent = -1
                     root.progressText = ""
+                    root.syncDirectory = ""
                 }
             }
         }
