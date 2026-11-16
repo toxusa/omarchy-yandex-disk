@@ -23,7 +23,7 @@ Automatic client installation and initial account setup are not implemented.
 ## Installation
 
 ```bash
-omarchy plugin add [https://github.com/toxusa/omarchy-yandex-disk.git](https://github.com/toxusa/omarchy-yandex-disk.git) --enable
+omarchy plugin add https://github.com/toxusa/omarchy-yandex-disk.git --enable
 ```
 
 If the widget does not appear or still shows the previous version after an
