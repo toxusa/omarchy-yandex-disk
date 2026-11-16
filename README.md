@@ -68,6 +68,18 @@ separately in the popup. A control error is cleared before the next control
 or installation attempt. A status message is replaced on each status
 response and cleared when that response has no message.
 
+Daemon control commands have a 15-second timeout. If a command is still
+running, the widget sends SIGTERM, followed by SIGKILL after another
+3 seconds if necessary.
+
+A timeout message remains visible until the next control or installation
+attempt. After the control process exits, the widget requests the actual
+client status. A timeout does not necessarily mean that the requested
+action had no effect.
+
+The timeout applies only to Start and Stop commands, not to the interactive
+installer.
+
 ## Status adapter
 
 To query the status independently of the widget:
@@ -97,7 +109,6 @@ The adapter only reads the status. It does not change client configuration.
   popup. The widget does not track the package manager's exit status.
 - Daemon control errors show a generic message with an exit code or an
   abnormal termination message. Detailed command output is only logged.
-- Daemon control commands have no plugin-defined timeout.
 - Failure to start a control process is not explicitly handled.
 - Sync progress, storage quota, and recent files are not displayed.
 - Each widget instance polls the client independently.
