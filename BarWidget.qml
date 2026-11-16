@@ -33,6 +33,12 @@ BarWidget {
         Qt.callLater(function() {
             root.popoutSwitchClosing = false
         })
+      }
+    function installClient() {
+        if (root.diskState !== "not_installed" || installProcess.running)
+            return
+        root.controlError = ""
+        installProcess.running = true
     }
     function controlDaemon(action) {
         if (controlProcess.running)
@@ -126,6 +132,7 @@ BarWidget {
                         enabled: root.diskState === "stopped"
                             && controlProcess.running === false
                         onClicked: root.controlDaemon("start")
+                        visible: root.diskState !== "not_installed"
                     }
 
                     Controls.Button {
@@ -133,6 +140,13 @@ BarWidget {
                         enabled: ["idle", "busy", "index"].indexOf(root.diskState) >= 0
                             && controlProcess.running === false
                         onClicked: root.controlDaemon("stop")
+                        visible: root.diskState !== "not_installed"
+                    }
+                    Controls.Button {
+                        text: "Install"
+                        visible: root.diskState === "not_installed"
+                        enabled: installProcess.running === false
+                        onClicked: root.installClient()
                     }
                 }
                 Text {
@@ -195,7 +209,29 @@ BarWidget {
             }
         }
     }
+    Process {
+        id: installProcess
 
+        command: [
+            "omarchy-launch-terminal",
+            "bash",
+            decodeURIComponent(
+                Qt.resolvedUrl("install-client.sh").toString().replace(/^file:\/\//, "")
+            )
+        ]
+        onExited: function(exitCode, exitStatus) {
+            if (exitStatus !== 0 || exitCode !== 0) {
+                root.controlError = "Could not launch the installer terminal."
+            }
+        }
+
+        stderr: StdioCollector {
+            onStreamFinished: {
+                if (this.text.trim().length > 0)
+                    console.warn("Yandex Disk installer:", this.text.trim())
+            }
+        }
+    }
     Timer {
         interval: 5000
         running: true
