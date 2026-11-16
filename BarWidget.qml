@@ -62,7 +62,14 @@ BarWidget {
         root.controlTimedOut = false
         controlProcess.command = ["yandex-disk", action]
         controlProcess.running = true
-      }
+    }
+
+    function refreshStatus() {
+         if (statusProcess.running)
+              return
+
+          statusProcess.running = true
+    }
 
     implicitWidth: label.implicitWidth + 16
     implicitHeight: barSize
@@ -157,6 +164,11 @@ BarWidget {
                         visible: root.diskState === "not_installed"
                         enabled: installProcess.running === false
                         onClicked: root.installClient()
+                    }
+                    Controls.Button {
+                        text: statusProcess.running ? "Refreshing..." : "Status"
+                        enabled: statusProcess.running === false
+                        onClicked: root.refreshStatus()
                     }
                 }
                 Text {
@@ -301,10 +313,7 @@ BarWidget {
         interval: 5000
         running: true
         repeat: true
-        onTriggered: {
-            if (statusProcess.running === false)
-                statusProcess.running = true
-        }
+        onTriggered: root.refreshStatus()
     }
     Timer {
         id: controlTimeoutTimer
