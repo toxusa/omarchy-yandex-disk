@@ -5,6 +5,44 @@ import shutil
 import subprocess
 
 
+def parse_status(output):
+    state_prefix = "Synchronization core status:"
+    state = None
+    recent_files = []
+    reading_recent = False
+
+    for line in output.splitlines():
+        if line.startswith(state_prefix):
+            state = line[len(state_prefix):].strip()
+
+        if line.strip() == "Last synchronized items:":
+            reading_recent = True
+            continue
+
+        if reading_recent:
+            item = line.strip()
+            if not item:
+                continue
+
+            if item.startswith("file: '") and item.endswith("'"):
+                recent_files.append(item[len("file: '"):-1])
+            else:
+                reading_recent = False
+
+    result = {"recent_files": recent_files[:10]}
+
+    if state in {"idle", "busy", "index"}:
+        result["state"] = state
+    elif state is not None:
+        result["state"] = "unknown"
+        result["message"] = state or "Empty synchronization state"
+    else:
+        result["state"] = "unknown"
+        result["message"] = output or "Empty status response"
+
+    return result
+
+
 def get_status():
     executable = shutil.which("yandex-disk")
     if executable is None:
@@ -36,18 +74,8 @@ def get_status():
             "message": output or f"Client exited with code {result.returncode}",
         }
 
-    prefix = "Synchronization core status:"
-    for line in output.splitlines():
-        if line.startswith(prefix):
-            state = line[len(prefix):].strip()
-            if state in {"idle", "busy", "index"}:
-                return {"state": state}
-            return {"state": "unknown", "message": state}
-
-    return {
-        "state": "unknown",
-        "message": output or "Empty status response",
-    }
+    return parse_status(output)
 
 
-print(json.dumps(get_status(), ensure_ascii=False))
+if __name__ == "__main__":
+    print(json.dumps(get_status(), ensure_ascii=False))

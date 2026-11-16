@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import Quickshell.Io
 import qs.Ui
@@ -10,6 +12,7 @@ BarWidget {
 
     property string diskState: "loading"
     property string statusMessage: ""
+    property var recentFiles: []
     property string controlError: ""
     property string controlAction: ""
     property bool controlTimedOut: false
@@ -85,7 +88,7 @@ BarWidget {
         open: root.opened
         focusTarget: popupContent
 
-        contentWidth: 280
+        contentWidth: 380
         contentHeight: Math.max(160, popupColumn.implicitHeight)
         padding: 16
 
@@ -160,6 +163,50 @@ BarWidget {
                     color: Commons.Color.foreground
                     font.pixelSize: 13
                 }
+                Text {
+                    visible: root.recentFiles.length > 0
+                    text: "Last synchronized files"
+                    color: Commons.Color.foreground
+                    font.pixelSize: 14
+                }
+                Flickable {
+                    id: recentFilesView
+
+                    width: parent.width
+                    height: Math.min(recentFilesColumn.implicitHeight, 180)
+                    visible: root.recentFiles.length > 0
+
+                    contentWidth: width
+                    contentHeight: recentFilesColumn.implicitHeight
+                    flickableDirection: Flickable.VerticalFlick
+                    boundsBehavior: Flickable.StopAtBounds
+                    clip: true
+
+                    Column {
+                        id: recentFilesColumn
+                        width: Math.max(0, recentFilesView.width - 16)
+                        spacing: 8
+
+                        Repeater {
+                              model: root.recentFiles
+
+                              delegate: Text {
+                                  required property string modelData
+
+                                  width: recentFilesColumn.width
+                                  text: modelData
+                                  textFormat: Text.PlainText
+                                  wrapMode: Text.WrapAnywhere
+                                  color: Commons.Color.foreground
+                                  font.pixelSize: 12
+                              }
+                        }
+                    }
+
+                    Controls.ScrollBar.vertical: Controls.ScrollBar {
+                          policy: Controls.ScrollBar.AsNeeded
+                    }
+                }
             }
         }
     }
@@ -210,10 +257,14 @@ BarWidget {
                     const result = JSON.parse(this.text)
                     root.diskState = result.state || "unknown"
                     root.statusMessage = result.message || ""
+                    root.recentFiles = Array.isArray(result.recent_files)
+                       ? result.recent_files
+                       : []
                 } catch (error) {
                     root.diskState = "error"
                     root.statusMessage = "Invalid response from status adapter."
                     console.warn("Yandex Disk: invalid status response:", this.text)
+                    root.recentFiles = []
                 }
             }
         }
