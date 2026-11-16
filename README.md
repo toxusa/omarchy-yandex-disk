@@ -17,6 +17,9 @@ A minimal Yandex Disk integration for the Omarchy bar.
 - Displays the daemon status in the bar.
 - Refreshes the status every 5 seconds.
 - Opens a popup with Start, Stop, Status, and Sync controls.
+- Allows manual Stop when the reported status is `unknown`.
+- Attempts one automatic Stop -> Start recovery per widget instance after
+  three consecutive `unknown` status responses.
 - Displays synchronization progress and recent synchronized files when
   reported by the client.
 - Displays the synchronization directory reported by the client.
@@ -73,15 +76,61 @@ omarchy restart shell
 Click the bar widget to open the popup.
 
 - Start is available when the daemon is stopped.
-- Stop is available when the daemon reports `idle`, `busy`, or `index`.
-- Start and Stop are disabled while a daemon control or Sync command is running.
+- Stop is available when the reported status is `idle`, `busy`, `index`,
+  or `unknown`.
+- Start and Stop are disabled while a daemon control or Sync command is running,
+  or while automatic recovery is in progress.
 - Status requests an immediate status refresh.
 - Sync runs `yandex-disk sync` and reports the command result in the popup.
 - Sync is available when the daemon reports `idle`, `busy`, or `index`,
-  and no daemon control or Sync command is running.
+  and no daemon control, Sync command, or automatic recovery is in progress.
 - Regular status changes may take up to one polling interval to appear.
 
 Stopping the daemon interrupts synchronization. Use Start to resume it.
+
+### Automatic recovery from unknown status
+
+`unknown` means that the status adapter could not recognize the client's
+status response. It does not necessarily mean that the daemon has stopped
+or is malfunctioning.
+
+After three consecutive `unknown` status responses, the widget attempts
+one automatic recovery:
+
+1. Run `yandex-disk stop`.
+2. Require successful completion of Stop and a fresh status response
+   confirming `stopped`.
+3. Run `yandex-disk start`.
+4. Require successful completion of Start and a status response reporting
+   `idle`, `busy`, or `index`.
+
+A different status breaks the consecutive `unknown` sequence. Recovery
+does not begin while a daemon control command, Sync, or the installer
+launcher is running.
+
+Start is not issued if Stop fails, times out, or is not confirmed by a
+fresh `stopped` response. Status requests started before the Stop command
+cannot authorize Start.
+
+Start, Stop, Sync, and Install are blocked throughout automatic recovery,
+including the intervals between commands. Status polling continues.
+
+The widget waits up to 30 seconds for each status confirmation after
+the corresponding command succeeds. Start and Stop also retain their
+individual command timeouts described below.
+
+The popup displays recovery progress and the result. If recovery fails,
+the widget shows an error and does not automatically retry. Even after
+successful recovery, another sequence of `unknown` responses does not
+trigger a second automatic restart in the same widget instance.
+
+The one-attempt limit resets when the widget instance is recreated, for
+example after a shell restart. It is not a persistent limit across shell
+sessions, and each widget instance has its own limit.
+
+A normal manual Stop does not schedule an automatic Start. Automatic
+recovery temporarily interrupts synchronization, just like a manual
+Stop followed by Start.
 
 ### Client installation
 
@@ -215,3 +264,5 @@ file count or disk usage values.
   disk usage query are separate operations and may observe different
   contents while synchronization is running.
 - Each widget instance performs its own status polling and statistics scans.
+  Automatic recovery is also instance-local; multiple instances do not
+  coordinate recovery attempts.
