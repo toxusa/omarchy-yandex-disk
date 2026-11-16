@@ -12,6 +12,7 @@ BarWidget {
     property string statusMessage: ""
     property string controlError: ""
     property string controlAction: ""
+    property bool controlTimedOut: false
     property bool opened: false
     property bool popoutSwitchClosing: false
 
@@ -55,6 +56,7 @@ BarWidget {
         }
         root.controlError = ""
         root.controlAction = action
+        root.controlTimedOut = false
         controlProcess.command = ["yandex-disk", action]
         controlProcess.running = true
       }
@@ -163,18 +165,23 @@ BarWidget {
     }
     Process {
       id: controlProcess
-      onExited: function(exitCode, exitStatus) {
-          if (exitStatus !== 0) {
-              root.controlError =
-                  "Command '" + root.controlAction + "' terminated abnormally."
-          } else if (exitCode !== 0) {
-              root.controlError =
-                  "Command '" + root.controlAction
-                  + "' failed (exit code " + exitCode + ")."
-          }
-          if (statusProcess.running === false)
-              statusProcess.running = true
-      }
+        onStarted: controlTimeoutTimer.restart()
+        onExited: function(exitCode, exitStatus) {
+            controlTimeoutTimer.stop()
+            controlKillTimer.stop()
+            if (!root.controlTimedOut) {
+                if (exitStatus !== 0) {
+                    root.controlError =
+                        "Command '" + root.controlAction + "' terminated abnormally."
+                } else if (exitCode !== 0) {
+                    root.controlError =
+                        "Command '" + root.controlAction
+                        + "' failed (exit code " + exitCode + ")."
+                }
+            }
+            if (statusProcess.running === false)
+                statusProcess.running = true
+        }
         stdout: StdioCollector {
             onStreamFinished: {
                 if (this.text.trim().length > 0)
@@ -241,6 +248,41 @@ BarWidget {
         onTriggered: {
             if (statusProcess.running === false)
                 statusProcess.running = true
+        }
+    }
+    Timer {
+        id: controlTimeoutTimer
+        interval: 15000
+        repeat: false
+
+        onTriggered: {
+            if (!controlProcess.running)
+                return
+
+            root.controlTimedOut = true
+            root.controlError =
+                "Command '" + root.controlAction
+                + "' timed out after 15 seconds. Requesting termination."
+
+            controlKillTimer.restart()
+            controlProcess.signal(15) // SIGTERM
+        }
+    }
+
+    Timer {
+        id: controlKillTimer
+        interval: 3000
+        repeat: false
+
+        onTriggered: {
+            if (!controlProcess.running)
+                return
+
+            root.controlError =
+                "Command '" + root.controlAction
+                + "' timed out and required forced termination."
+
+            controlProcess.signal(9) // SIGKILL
         }
     }
 }
