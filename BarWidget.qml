@@ -214,82 +214,90 @@ BarWidget {
     implicitWidth: barButton.implicitWidth
     implicitHeight: barSize
 
+    // BarIconButton scales every custom icon to the shell-wide bar icon size,
+    // so this widget draws its own icon to keep control of the size. Override
+    // it with "iconSize" in this widget's shell.json entry.
+    property real iconSize: Number(setting("iconSize", Commons.Style.bar.iconSize))
+
+    Item {
+        id: iconContent
+
+        anchors.centerIn: parent
+        width: root.iconSize
+        height: root.iconSize
+        scale: barButton.pressScale
+
+        readonly property bool stopped: root.diskState === "stopped"
+        readonly property bool problem:
+            root.diskState === "error" || root.diskState === "unknown"
+
+        readonly property string stateGlyph: {
+            switch (root.diskState) {
+            case "idle":
+                return ""
+            case "busy":
+                return "\uf021"
+            case "index":
+                return "\uf002"
+            case "stopped":
+                return "\uf04c"
+            case "not_installed":
+                return "\uf019"
+            case "loading":
+                return "\uf254"
+            default:
+                return "\uf12a"
+            }
+        }
+
+        YandexDiskIcon {
+            anchors.fill: parent
+            color: barButton.foreground
+            opacity: iconContent.stopped ? 0.55 : 1.0
+        }
+
+        Item {
+            id: stateBadge
+            anchors.right: parent.right
+            anchors.rightMargin: -4
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: -4
+            width: 11
+            height: 11
+            visible: iconContent.stateGlyph.length > 0
+
+            OpticalGlyph {
+                anchors.fill: parent
+                text: iconContent.stateGlyph
+                fontFamily: barButton.fontFamily
+                fontSize: 10
+                color: iconContent.problem
+                    ? Commons.Color.urgent
+                    : barButton.foreground
+            }
+
+            RotationAnimation on rotation {
+                running: root.diskState === "busy"
+                from: 0
+                to: 360
+                duration: 1800
+                loops: Animation.Infinite
+
+                onRunningChanged: {
+                    if (!running)
+                        stateBadge.rotation = 0
+                }
+            }
+        }
+    }
+
     BarIconButton {
         id: barButton
         anchors.fill: parent
         bar: root.bar
         tooltipText: "Yandex Disk: " + root.diskState
-
-        iconComponent: Component {
-            Item {
-                id: iconContent
-
-                readonly property bool stopped: root.diskState === "stopped"
-                readonly property bool problem:
-                    root.diskState === "error" || root.diskState === "unknown"
-
-                readonly property string stateGlyph: {
-                    switch (root.diskState) {
-                    case "idle":
-                        return ""
-                    case "busy":
-                        return "\uf021"
-                    case "index":
-                        return "\uf002"
-                    case "stopped":
-                        return "\uf04c"
-                    case "not_installed":
-                        return "\uf019"
-                    case "loading":
-                        return "\uf254"
-                    default:
-                        return "\uf12a"
-                    }
-                }
-
-                YandexDiskIcon {
-                    anchors.centerIn: parent
-                    width: parent.width * 1.2
-                    height: parent.height * 1.2
-                    color: barButton.foreground
-                    opacity: iconContent.stopped ? 0.55 : 1.0
-                }
-
-                Item {
-                    id: stateBadge
-                    anchors.right: parent.right
-                    anchors.rightMargin: -4
-                    anchors.bottom: parent.bottom
-                    anchors.bottomMargin: -4
-                    width: 11
-                    height: 11
-                    visible: iconContent.stateGlyph.length > 0
-
-                    OpticalGlyph {
-                        anchors.fill: parent
-                        text: iconContent.stateGlyph
-                        fontFamily: barButton.fontFamily
-                        fontSize: 10
-                        color: iconContent.problem
-                            ? Commons.Color.urgent
-                            : barButton.foreground
-                    }
-
-                    RotationAnimation on rotation {
-                        running: root.diskState === "busy"
-                        from: 0
-                        to: 360
-                        duration: 1800
-                        loops: Animation.Infinite
-
-                        onRunningChanged: {
-                            if (!running)
-                                stateBadge.rotation = 0
-                        }
-                    }
-                }
-            }
-          }
+        iconComponent: null
+        hasVisualContent: true
 
         onPressed: function(buttonCode) {
             if (buttonCode === Qt.LeftButton)

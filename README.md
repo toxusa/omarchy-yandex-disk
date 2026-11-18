@@ -75,6 +75,13 @@ omarchy restart shell
 
 Click the bar widget to open the popup.
 
+The icon follows the shell-wide bar icon size. To size it just for this
+widget, set `iconSize` in its `shell.json` entry:
+
+```bash
+omarchy bar set toxusa.yandex-disk iconSize 20 --json
+```
+
 - Start is available when the daemon is stopped.
 - Stop is available when the reported status is `idle`, `busy`, `index`,
   or `unknown`.
