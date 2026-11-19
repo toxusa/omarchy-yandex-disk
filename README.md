@@ -74,6 +74,17 @@ update, restarting the shell helped during development:
 omarchy restart shell
 ```
 
+To remove the plugin and disable its bar widget:
+
+```bash
+omarchy plugin remove toxusa.yandex-disk
+```
+
+This removes the plugin checkout from `~/.config/omarchy/plugins/` and its
+entry from `~/.config/omarchy/shell.json`. It does not uninstall the
+`yandex-disk` client, remove `~/.config/yandex-disk/`, or delete the sync
+directory; handle those separately if you no longer need them.
+
 ## Usage
 
 Click the bar widget to open the popup.
