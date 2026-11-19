@@ -34,6 +34,8 @@ BarWidget {
     property string recoveryMessage: ""
     property int statusGeneration: 0
     readonly property bool recoveryActive: recoveryPhase.length > 0
+    readonly property bool clientReady:
+        diskState !== "not_installed" && diskState !== "not_configured"
 
     function failRecovery(message) {
         recoveryWaitTimer.stop()
@@ -47,7 +49,7 @@ BarWidget {
         root.controlError = ""
         root.controlAction = action
         root.controlTimedOut = false
-        controlProcess.command = ["yandex-disk", action]
+        controlProcess.command = ["env", "LC_ALL=C", "yandex-disk", action]
         controlProcess.running = true
     }
 
@@ -63,7 +65,8 @@ BarWidget {
                 root.recoveryPhase = "starting"
                 root.recoveryMessage = "Automatic recovery: starting daemon."
                 root.issueRecoveryCommand("start")
-            } else if (state === "error" || state === "not_installed") {
+            } else if (state === "error" || state === "not_installed"
+                       || state === "not_configured") {
                 root.failRecovery("could not confirm stopped state.")
             }
             return
@@ -74,7 +77,8 @@ BarWidget {
                 recoveryWaitTimer.stop()
                 root.recoveryPhase = ""
                 root.recoveryMessage = "Automatic recovery completed successfully."
-            } else if (state === "error" || state === "not_installed") {
+            } else if (state === "error" || state === "not_installed"
+                       || state === "not_configured") {
                 root.failRecovery("could not confirm running state.")
             }
             return
@@ -164,14 +168,22 @@ BarWidget {
         })
       }
     function installClient() {
-        if (root.recoveryActive
-            || root.diskState !== "not_installed" || installProcess.running)
+        if (root.recoveryActive || root.diskState !== "not_installed"
+            || installProcess.running || setupProcess.running)
             return
         root.controlError = ""
         installProcess.running = true
     }
+    function setupClient() {
+        if (root.recoveryActive
+            || root.diskState !== "not_configured" || setupProcess.running)
+            return
+        root.controlError = ""
+        setupProcess.running = true
+    }
     function controlDaemon(action) {
-        if (root.recoveryActive || controlProcess.running || syncProcess.running)
+        if (root.recoveryActive || controlProcess.running
+            || syncProcess.running || setupProcess.running)
             return
 
         if (action === "start") {
@@ -188,7 +200,7 @@ BarWidget {
         root.controlError = ""
         root.controlAction = action
         root.controlTimedOut = false
-        controlProcess.command = ["yandex-disk", action]
+        controlProcess.command = ["env", "LC_ALL=C", "yandex-disk", action]
         controlProcess.running = true
     }
 
@@ -199,7 +211,8 @@ BarWidget {
           statusProcess.running = true
     }
     function syncNow() {
-        if (root.recoveryActive || syncProcess.running || controlProcess.running)
+        if (root.recoveryActive || syncProcess.running
+            || controlProcess.running || setupProcess.running)
             return
 
         if (["idle", "busy", "index"].indexOf(root.diskState) === -1)
@@ -243,6 +256,8 @@ BarWidget {
                 return "\uf04c"
             case "not_installed":
                 return "\uf019"
+            case "not_configured":
+                return "\uf12a"
             case "loading":
                 return "\uf254"
             default:
@@ -491,7 +506,7 @@ BarWidget {
                             && syncProcess.running === false
                             && !root.recoveryActive
                         onClicked: root.controlDaemon("start")
-                        visible: root.diskState !== "not_installed"
+                        visible: root.clientReady
                     }
 
                     Controls.Button {
@@ -501,7 +516,7 @@ BarWidget {
                             && syncProcess.running === false
                             && !root.recoveryActive
                         onClicked: root.controlDaemon("stop")
-                        visible: root.diskState !== "not_installed"
+                        visible: root.clientReady
                     }
                     Controls.Button {
                         text: "Install"
@@ -511,13 +526,20 @@ BarWidget {
                         onClicked: root.installClient()
                     }
                     Controls.Button {
+                        text: "Setup"
+                        visible: root.diskState === "not_configured"
+                        enabled: setupProcess.running === false
+                            && !root.recoveryActive
+                        onClicked: root.setupClient()
+                    }
+                    Controls.Button {
                         text: statusProcess.running ? "Refreshing..." : "Status"
                         enabled: statusProcess.running === false
                         onClicked: root.refreshStatus()
                     }
                     Controls.Button {
                         text: syncProcess.running ? "Syncing..." : "Sync"
-                        visible: root.diskState !== "not_installed"
+                        visible: root.clientReady
                         enabled: ["idle", "busy", "index"].indexOf(root.diskState) >= 0
                             && controlProcess.running === false
                             && syncProcess.running === false
@@ -827,8 +849,31 @@ BarWidget {
         }
     }
     Process {
+        id: setupProcess
+
+        command: ["omarchy-launch-terminal", "env", "LC_ALL=C", "yandex-disk", "setup"]
+
+        onExited: function(exitCode, exitStatus) {
+            if (exitStatus !== 0) {
+                root.controlError = "Setup command terminated abnormally."
+            } else if (exitCode !== 0) {
+                root.controlError = "Setup command failed (exit code " + exitCode + ")."
+            }
+            Qt.callLater(function() {
+                root.refreshStatus()
+            })
+        }
+
+        stderr: StdioCollector {
+            onStreamFinished: {
+                if (this.text.trim().length > 0)
+                    console.warn("Yandex Disk setup:", this.text.trim())
+            }
+        }
+    }
+    Process {
         id: syncProcess
-        command: ["yandex-disk", "sync"]
+        command: ["env", "LC_ALL=C", "yandex-disk", "sync"]
 
         onStarted: root.refreshStatus()
 

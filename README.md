@@ -32,6 +32,7 @@ A minimal Yandex Disk integration for the Omarchy bar.
 - Uses the Omarchy theme foreground color for the main interface and gray
   text for directory information.
 - Offers an Install button when the Yandex Disk CLI is not found.
+- Detects an installed but unconfigured client and offers a Setup button.
 - Opens an interactive AUR installer in a terminal using yay.
 
 ## Requirements
@@ -41,8 +42,10 @@ A minimal Yandex Disk integration for the Omarchy bar.
 - The official `yandex-disk` CLI for status monitoring and daemon controls.
 - GNU `du` for local disk usage statistics.
 
-If the client is missing, the popup offers an Install button. Installation
-requires `yay` and `omarchy-launch-terminal`.
+If the client is missing, the popup offers an Install button. If the client is
+installed but has no sync directory or OAuth token yet, the popup offers a Setup
+button instead. Both require `omarchy-launch-terminal`; installation also
+requires `yay`.
 
 The installer runs `yay -S --needed aur/yandex-disk` in a separate terminal,
 without `--noconfirm`. Review the AUR build files and installation prompts
@@ -149,6 +152,22 @@ Status polling continues while the installer is open. Once the CLI becomes
 available, the widget returns to the normal status and control view.
 Installing the package alone does not authorize or configure the client.
 
+### Client setup
+
+An installed client without a sync directory or OAuth token reports a
+configuration error (for example, `Error: option 'dir' is missing`). The widget
+shows this as `not_configured` with a short hint instead of the raw CLI error.
+Start, Stop, and Sync are hidden; click Setup to open `yandex-disk setup` in a
+terminal and choose a sync directory and account.
+
+Status polling continues while the setup terminal is open. Once the client is
+configured, the widget returns to the normal status and control view without a
+shell restart. Setup does not start the daemon or enable autostart.
+
+All CLI commands are launched with `LC_ALL=C`. The client is sensitive to the
+host locale and can exit with `locale::facet::_S_create_c_locale name not valid`
+when the configured locale is not generated on the system.
+
 ### Messages and daemon control timeouts
 
 Status messages and daemon control errors are displayed separately in the
@@ -224,6 +243,7 @@ python3 yd-status.py
 The adapter prints one JSON object with a `state` field:
 
 - `not_installed`
+- `not_configured`
 - `stopped`
 - `idle`
 - `busy`
@@ -257,7 +277,9 @@ file count or disk usage values.
 ## Current limitations
 
 - Account authorization and initial client configuration must be completed
-  separately.
+  separately. The Setup button opens the client's own wizard.
+- Unconfigured-client detection relies on the CLI's English error messages.
+  A localized or changed message may be reported as `error` instead.
 - Installation requires yay and the Omarchy terminal launcher.
 - Installation progress and results are shown in the terminal, not in the
   popup. The widget does not track the package manager's exit status.

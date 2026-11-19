@@ -6,6 +6,18 @@ import shutil
 import subprocess
 
 
+CONFIGURATION_ERRORS = (
+    "option 'dir' is missing",
+    "indicated directory does not exist",
+    "oauth token hasn't been found",
+)
+
+
+def is_configuration_error(output):
+    lowered = output.lower()
+    return any(message in lowered for message in CONFIGURATION_ERRORS)
+
+
 def parse_status(output):
     state_prefix = "Synchronization core status:"
     state = None
@@ -94,6 +106,14 @@ def get_status():
         return {"state": "stopped"}
 
     if result.returncode != 0:
+        if is_configuration_error(output):
+            return {
+                "state": "not_configured",
+                "message": (
+                    "Client is not configured. Run 'yandex-disk setup' to "
+                    "choose a sync directory and sign in."
+                ),
+            }
         return {
             "state": "error",
             "message": output or f"Client exited with code {result.returncode}",
