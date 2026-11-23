@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "toxusa.yandex-disk",
   "name": "Yandex Disk",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "author": "toxusa",
   "description": "Yandex Disk status and daemon controls",
   "kinds": ["bar-widget"],
