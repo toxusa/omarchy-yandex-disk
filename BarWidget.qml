@@ -228,9 +228,10 @@ BarWidget {
     implicitHeight: barSize
 
     // BarIconButton scales every custom icon to the shell-wide bar icon size,
-    // so this widget draws its own icon to keep control of the size. Override
-    // it with "iconSize" in this widget's shell.json entry.
-    property real iconSize: Number(setting("iconSize", Commons.Style.bar.iconSize))
+    // so this widget draws its own icon to keep control of the size. The
+    // default matches the historical look (1.2x the optical icon canvas).
+    // Override it with "iconSize" in this widget's shell.json entry.
+    property real iconSize: Number(setting("iconSize", Commons.Style.bar.iconCanvas * 1.2))
 
     Item {
         id: iconContent
@@ -356,7 +357,7 @@ BarWidget {
                 Text {
                     text: "Yandex Disk"
                     color: Commons.Color.foreground
-                    font.pixelSize: 16
+                    font.pixelSize: Commons.Style.font.heading
                     font.bold: true
                 }
                 Column {
@@ -368,23 +369,14 @@ BarWidget {
                         width: parent.width
                         spacing: 8
 
-                        Controls.ToolButton {
+                        PanelActionButton {
                             id: openDirectoryButton
                             anchors.verticalCenter: parent.verticalCenter
-                            width: 32
-                            height: 28
+                            iconText: "\uf07c"
                             enabled: root.syncDirectory.length > 0
-
-                            contentItem: OpticalGlyph {
-                                text: "\uf07c"
-                                fontFamily: Commons.Style.font.family
-                                fontSize: 18
-                                color: Commons.Color.foreground
-                            }
+                            tooltipText: "Open sync directory"
 
                             Accessible.name: "Open sync directory"
-                            Controls.ToolTip.visible: hovered
-                            Controls.ToolTip.text: "Open sync directory"
 
                             onClicked: {
                                 if (root.syncDirectory.length > 0) {
@@ -405,7 +397,7 @@ BarWidget {
                             textFormat: Text.PlainText
                             wrapMode: Text.WrapAnywhere
                             color: "#888888"
-                            font.pixelSize: 12
+                            font.pixelSize: Commons.Style.font.body
                         }
                       }
 
@@ -420,7 +412,7 @@ BarWidget {
                         textFormat: Text.PlainText
                         wrapMode: Text.Wrap
                         color: "#888888"
-                        font.pixelSize: 12
+                        font.pixelSize: Commons.Style.font.body
                     }
 
                     Text {
@@ -430,13 +422,13 @@ BarWidget {
                         textFormat: Text.PlainText
                         wrapMode: Text.Wrap
                         color: "#888888"
-                        font.pixelSize: 12
+                        font.pixelSize: Commons.Style.font.body
                     }
                 }
                 Text {
                     text: "Status: " + root.diskState
                     color: Commons.Color.foreground
-                    font.pixelSize: 14
+                    font.pixelSize: Commons.Style.font.title
                 }
                 Column {
                     width: parent.width
@@ -452,7 +444,7 @@ BarWidget {
                         textFormat: Text.PlainText
                         wrapMode: Text.Wrap
                         color: Commons.Color.foreground
-                        font.pixelSize: 13
+                        font.pixelSize: Commons.Style.font.subtitle
                     }
 
                     Controls.ProgressBar {
@@ -494,56 +486,68 @@ BarWidget {
                     textFormat: Text.PlainText
                     wrapMode: Text.Wrap
                     color: Commons.Color.foreground
-                    font.pixelSize: 13
+                    font.pixelSize: Commons.Style.font.subtitle
                 }
                 Row {
-                    spacing: 12
+                    spacing: Commons.Style.spacing.xxl
 
-                    Controls.Button {
+                    Button {
                         text: "Start"
+                        bordered: true
                         enabled: root.diskState === "stopped"
                             && controlProcess.running === false
                             && syncProcess.running === false
                             && !root.recoveryActive
+                        opacity: enabled ? 1.0 : 0.5
                         onClicked: root.controlDaemon("start")
                         visible: root.clientReady
                     }
 
-                    Controls.Button {
+                    Button {
                         text: "Stop"
+                        bordered: true
                         enabled: ["idle", "busy", "index", "unknown"].indexOf(root.diskState) >= 0
                             && controlProcess.running === false
                             && syncProcess.running === false
                             && !root.recoveryActive
+                        opacity: enabled ? 1.0 : 0.5
                         onClicked: root.controlDaemon("stop")
                         visible: root.clientReady
                     }
-                    Controls.Button {
+                    Button {
                         text: "Install"
+                        bordered: true
                         visible: root.diskState === "not_installed"
                         enabled: installProcess.running === false
                             && !root.recoveryActive
+                        opacity: enabled ? 1.0 : 0.5
                         onClicked: root.installClient()
                     }
-                    Controls.Button {
+                    Button {
                         text: "Setup"
+                        bordered: true
                         visible: root.diskState === "not_configured"
                         enabled: setupProcess.running === false
                             && !root.recoveryActive
+                        opacity: enabled ? 1.0 : 0.5
                         onClicked: root.setupClient()
                     }
-                    Controls.Button {
+                    Button {
                         text: statusProcess.running ? "Refreshing..." : "Status"
+                        bordered: true
                         enabled: statusProcess.running === false
+                        opacity: enabled ? 1.0 : 0.5
                         onClicked: root.refreshStatus()
                     }
-                    Controls.Button {
+                    Button {
                         text: syncProcess.running ? "Syncing..." : "Sync"
+                        bordered: true
                         visible: root.clientReady
                         enabled: ["idle", "busy", "index"].indexOf(root.diskState) >= 0
                             && controlProcess.running === false
                             && syncProcess.running === false
                             && !root.recoveryActive
+                        opacity: enabled ? 1.0 : 0.5
                         onClicked: root.syncNow()
                     }
                 }
@@ -555,7 +559,7 @@ BarWidget {
                     textFormat: Text.PlainText
                     wrapMode: Text.Wrap
                     color: Commons.Color.foreground
-                    font.pixelSize: 13
+                    font.pixelSize: Commons.Style.font.subtitle
                 }
                 Text {
                     width: parent.width
@@ -564,7 +568,7 @@ BarWidget {
                     textFormat: Text.PlainText
                     wrapMode: Text.Wrap
                     color: Commons.Color.foreground
-                    font.pixelSize: 13
+                    font.pixelSize: Commons.Style.font.subtitle
                 }
                 Text {
                     width: parent.width
@@ -574,20 +578,22 @@ BarWidget {
                         : root.syncMessage
                     textFormat: Text.PlainText
                     wrapMode: Text.Wrap
-                    color: Commons.Color.foreground
-                    font.pixelSize: 13
+                    color: Commons.Color.muted
+                    font.pixelSize: Commons.Style.font.subtitle
                 }
-                Text {
+                PanelSeparator {
+                    visible: root.recentFiles.length > 0
+                }
+                PanelSectionHeader {
                     visible: root.recentFiles.length > 0
                     text: "Last synchronized files"
-                    color: Commons.Color.foreground
-                    font.pixelSize: 14
                 }
                 Flickable {
                     id: recentFilesView
 
                     width: parent.width
-                    height: Math.min(recentFilesColumn.implicitHeight, 180)
+                    height: Math.min(recentFilesColumn.implicitHeight,
+                                     Commons.Style.space(180))
                     visible: root.recentFiles.length > 0
 
                     contentWidth: width
@@ -612,7 +618,7 @@ BarWidget {
                                   textFormat: Text.PlainText
                                   wrapMode: Text.WrapAnywhere
                                   color: Commons.Color.foreground
-                                  font.pixelSize: 12
+                                  font.pixelSize: Commons.Style.font.body
                               }
                         }
                     }
